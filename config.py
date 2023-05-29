@@ -33,14 +33,11 @@ TOP_N = 5  # number of top ranked texts to consider for query message
 
 # Paths
 SAVE_PATH = Path("saved")
-TEMP_CONTRACTS_PATH = Path("temp/contracts")
+TEMP_PATH = Path("temp")
 if not SAVE_PATH.exists():
     os.mkdir(SAVE_PATH)
-if not TEMP_CONTRACTS_PATH.parent.exists():
-    os.mkdir(TEMP_CONTRACTS_PATH.parent)
-    os.mkdir(TEMP_CONTRACTS_PATH)
-elif not TEMP_CONTRACTS_PATH.exists():
-    os.mkdir(TEMP_CONTRACTS_PATH)
+if not TEMP_PATH.exists():
+    os.mkdir(TEMP_PATH)
 
 URLS = [
     "https://docs.lyra.finance/overview/how-does-lyra-work",

@@ -32,7 +32,7 @@ def halved_by_delimiter(string: str, delimiter: str = "\n") -> list[str, str]:
         return [left, right]
 
 
-def truncate_text(
+def truncate_string(
     string: str,
     model: str,
     max_tokens: int,

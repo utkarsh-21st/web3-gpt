@@ -18,6 +18,6 @@
 - Ask Question
 
 ### Example URLS:
-- https://docs.lyra.finance/overview/how-does-lyra-work
+- https://docs.lyra.finance/overview/how-does-lyra-work, https://github.com/lyra-finance/lyra-protocol/tree/master/contracts
 - https://gmxio.gitbook.io/gmx/
 
