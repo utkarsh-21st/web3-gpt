@@ -8,15 +8,18 @@ from config import (
     HEADERS,
     BLACKLIST,
     MAX_TOKENS_PER_EMBEDDING,
-    CHAT_MODEL,
+    DOC_MODEL,
+    CODE_MODEL,
     BATCH_SIZE,
     EMBEDDING_MODEL,
-    API_KEY,
+    OPENAI_API_KEY,
     SAVE_PATH,
     MAX_TOKENS_PER_QUERY,
     TOP_N,
+    TOP_N_CONTRACT,
     URLS,
     TEMP_PATH,
+    GITHUB_PA_TOKEN,
 )
 from gpt_utils import num_tokens, halved_by_delimiter, truncate_string
 import pandas as pd
@@ -25,7 +28,7 @@ from scipy import spatial
 import ast
 import shutil
 
-openai.api_key = API_KEY
+openai.api_key = OPENAI_API_KEY
 
 
 class DeFiQA:
@@ -54,20 +57,22 @@ class DeFiQA:
             self.embeddings_path_doc = SAVE_PATH / (self.doc_name + ".csv")
             self.embeddings_df_doc = pd.DataFrame()
 
-            if not clear_cache and self.embeddings_path_doc.exists():
-                print("Using saved doc embeddings")
-                self.embeddings_df_doc = pd.read_csv(
-                    str(self.embeddings_path_doc),
-                    converters={"embedding": ast.literal_eval},
-                )
-            else:
+            if clear_cache:
+                print(f"Clearing cache for {self.doc_url}")
                 if self.embeddings_path_doc.exists():
-                    print(f"Clearing cache for {self.doc_url}")
                     os.remove(self.embeddings_path_doc)
-                print("Calculating doc embeddings")
+
+            if not self.embeddings_path_doc.exists():
                 self.scrape_urls_recursively()
                 self.read_text_from_url()
                 self.calculate_and_save_doc_embeddings()
+            else:
+                print("Using saved doc embeddings")
+
+            self.embeddings_df_doc = pd.read_csv(
+                str(self.embeddings_path_doc),
+                converters={"embedding": ast.literal_eval},
+            )
 
         # contracts
         self.code_names = []
@@ -96,24 +101,26 @@ class DeFiQA:
             )
             self.embeddings_df_contract = pd.DataFrame()
 
-            if not clear_cache and self.embeddings_path_contract.exists():
-                print("Using saved contract embeddings")
-                self.embeddings_df_contract = pd.read_csv(
-                    str(self.embeddings_path_contract),
-                    converters={"embedding": ast.literal_eval},
-                )
-            else:
+            if clear_cache:
+                print(f"Clearing cache for {self.repo_name}::{self.contracts_name}")
                 if self.embeddings_path_contract.exists():
-                    print(f"Clearing cache for {self.repo_name}::{self.contracts_name}")
-                    os.remove(self.contracts_path)
                     os.remove(self.embeddings_path_contract)
+                if self.contracts_path.exists():
+                    shutil.rmtree(self.contracts_path)
 
-                # TODO:
-                # if self.contracts_path.exists():
-                #     shutil.rmtree(self.contracts_path)
-                # self.download_contracts()
+            if not self.embeddings_path_contract.exists():
+                if not self.contracts_path.exists():
+                    self.download_contracts()
                 self.read_contracts()
+
                 self.calculate_and_save_contract_embeddings()
+            else:
+                print("Using saved contract embeddings")
+
+            self.embeddings_df_contract = pd.read_csv(
+                str(self.embeddings_path_contract),
+                converters={"embedding": ast.literal_eval},
+            )
 
     def scrape_urls_recursively(self, url=None):
         url = url if url else self.doc_url
@@ -124,10 +131,10 @@ class DeFiQA:
             href = i.attrs["href"]
             if href.startswith("/"):
                 url_ = self.doc_url + href
+                split_hash = url_.split("#")
+                if len(split_hash) > 1:
+                    url_ = "#".join(split_hash[:-1])
                 if url_ not in self.urls:
-                    # TODO:
-                    # if len(self.urls) == 10:
-                    #     break
                     self.urls.append(url_)
                     print(url_)
                     self.scrape_urls_recursively(url_)
@@ -141,6 +148,8 @@ class DeFiQA:
                 "--output",
                 str(self.contracts_path),
                 "--force",
+                "--token",
+                GITHUB_PA_TOKEN,
             ]
         )
         for path in self.contracts_path.rglob("*"):
@@ -168,11 +177,12 @@ class DeFiQA:
                 if str(path).split(".")[-1].lower() == "sol":
                     with open(path, "r") as contract:
                         self.code_names.append(
-                            f"File name: {path.stem}\nFile Category: {path.parts[-2]}"
+                            f"Contract Category: {path.parts[-2]}\nContract {path.stem}"
                         )
                         self.codes.append(contract.read())
             else:
-                self.read_contracts(path)
+                pass
+                # self.read_contracts(path)
 
     def get_url_reponse(self, url):
         return (
@@ -181,43 +191,42 @@ class DeFiQA:
             else requests.get(url, headers=HEADERS)
         )
 
-    def perform_string_splitting(self, strings, prefixes):
+    def perform_string_splitting(self, strings, prefixes, model):
         result = []
         for string, prefix in zip(strings, prefixes):
-            split_strings = self.split_string(string)
+            split_strings = self.split_string(string, model)
             split_strings = list(
                 map(lambda split_string: f"{prefix}:\n{split_string}", split_strings)
             )
             result.extend(split_strings)
         return result
 
-    def split_string(self, string, max_recursion=5):
+    def split_string(self, string, model, max_recursion=5):
         texts = []
-        if num_tokens(string) < MAX_TOKENS_PER_EMBEDDING:
-            texts.extend([string])
-            return texts
+        if num_tokens(string, model) < MAX_TOKENS_PER_EMBEDDING:
+            return [string]
         elif max_recursion == 0:
             print("Max recursions reached")
             print("Truncate")
             return [
                 truncate_string(
-                    string, model=CHAT_MODEL, max_tokens=MAX_TOKENS_PER_EMBEDDING
+                    string, model=model, max_tokens=MAX_TOKENS_PER_EMBEDDING
                 )
             ]
         else:
             for delimiter in ["\n\n", "\n", ". "]:
-                left, right = halved_by_delimiter(string, delimiter=delimiter)
+                left, right = halved_by_delimiter(string, delimiter, model)
                 if left == "" or right == "":
                     # if either half is empty, retry with a more fine-grained delimiter
                     continue
                 else:
-                    texts1 = self.split_string(left, max_recursion - 1)
-                    texts2 = self.split_string(right, max_recursion - 1)
+                    texts1 = self.split_string(left, model, max_recursion - 1)
+                    texts2 = self.split_string(right, model, max_recursion - 1)
                     texts.extend(texts1)
                     texts.extend(texts2)
                     return texts
             # print("string:", string)
-            print("num_tokens:", num_tokens(string))
+            print("num_tokens:", num_tokens(string, model))
             print("Max:", MAX_TOKENS_PER_EMBEDDING)
             # print("left:", left)
             # print("right:", right)
@@ -228,14 +237,14 @@ class DeFiQA:
             print("Truncate")
             return [
                 truncate_string(
-                    string, model=CHAT_MODEL, max_tokens=MAX_TOKENS_PER_EMBEDDING
+                    string, model=DOC_MODEL, max_tokens=MAX_TOKENS_PER_EMBEDDING
                 )
             ]
             # else:
             #     return string
 
     def calculate_and_save_doc_embeddings(self):
-        texts = self.perform_string_splitting(self.texts, self.text_headings)
+        texts = self.perform_string_splitting(self.texts, self.text_headings, DOC_MODEL)
 
         for batch_start in range(0, len(texts), BATCH_SIZE):
             batch_end = batch_start + BATCH_SIZE
@@ -255,7 +264,7 @@ class DeFiQA:
         self.embeddings_df_doc.to_csv(self.embeddings_path_doc, index=False)
 
     def calculate_and_save_contract_embeddings(self):
-        codes = self.perform_string_splitting(self.codes, self.code_names)
+        codes = self.perform_string_splitting(self.codes, self.code_names, CODE_MODEL)
 
         for batch_start in range(0, len(codes), BATCH_SIZE):
             batch_end = batch_start + BATCH_SIZE
@@ -314,52 +323,68 @@ class DeFiQA:
         strings, relatednesses = zip(*strings_and_relatednesses)
         return strings[:top_n], relatednesses[:top_n]
 
-    def query_doc(self, query: str) -> str:
+    def get_message_doc(self, query: str, model: str) -> str:
         """Return a message for GPT, with relevant source texts pulled from a dataframe."""
         texts, relatednesses = self.docs_ranked_by_relatedness(query, top_n=TOP_N)
-        introduction = 'Use the below documentation of a DeFi protocol to answer the subsequent question. If the answer cannot be found in the articles, write "I could not find an answer."'
+        introduction = f'Use the below documentation of a DeFi protocol named {self.doc_name} to answer the subsequent question. If the answer cannot be found in the articles, write "I could not find an answer."'
         question = f"\n\nQuestion: {query}"
         message = introduction
         for text in texts:
             next_article = f"\n\n{text}\n\n"
-            if num_tokens(message + next_article + question) > MAX_TOKENS_PER_QUERY:
-                break
-            else:
-                message += next_article
-        return message + question
-    
-    def query_contract(self, query: str) -> str:
-        """Return a message for GPT, with relevant source texts pulled from a dataframe."""
-        texts, relatednesses = self.codes_ranked_by_relatedness(query, top_n=TOP_N)
-        introduction = 'Use the below Solidity Contracts of a DeFi protocol to answer the subsequent question. If the answer cannot be found in the articles, write "I could not find an answer."'
-        question = f"\n\nQuestion: {query}"
-        message = introduction
-        for text in texts:
-            next_article = f"\n\n{text}\n\n"
-            if num_tokens(message + next_article + question) > MAX_TOKENS_PER_QUERY:
+            if (
+                num_tokens(message + next_article + question, model)
+                > MAX_TOKENS_PER_QUERY
+            ):
                 break
             else:
                 message += next_article
         return message + question
 
+    def get_messages_contract(self, query: str, n_messages: int, model: str) -> str:
+        """Return a list messages for GPT, with relevant source texts pulled from a dataframe."""
+        texts, relatednesses = self.codes_ranked_by_relatedness(
+            query, top_n=TOP_N_CONTRACT
+        )
+        introduction = f'Use the below Solidity Contracts of a DeFi protocol named {self.repo_name} to answer the subsequent question. If the answer cannot be found in the articles, write "I could not find an answer."'
+        question = f"\n\nQuestion: {query}"
+        messages = []
+        message = introduction
+        for i, text in enumerate(texts):
+            next_article = f"\n\n{text}\n\n"
+            if (
+                num_tokens(message + next_article + question, model)
+                > MAX_TOKENS_PER_QUERY
+            ):
+                messages.append(message + question)
+                if len(messages) == n_messages:
+                    break
+                message = introduction + next_article
+            else:
+                message += next_article
+                if i == len(texts) - 1:
+                    messages.append(message)
+
+        return messages
+
     def ask_doc(
         self,
         query,
+        model,
         print_message: bool = False,
     ) -> str:
         """Answers a query using GPT and a dataframe of relevant texts and embeddings."""
-        message = self.query_doc(query)
+        message = self.get_message_doc(query, model)
         if print_message:
             print(message)
         messages = [
             {
                 "role": "system",
-                "content": f"You answer questions about a DeFi protocol named: {self.doc_name}",
+                "content": "You answer questions about a DeFi protocol",
             },
             {"role": "user", "content": message},
         ]
         response = openai.ChatCompletion.create(
-            model=CHAT_MODEL, messages=messages, temperature=0
+            model=DOC_MODEL, messages=messages, temperature=0
         )
         response_message = response["choices"][0]["message"]["content"]
         return response_message
@@ -367,21 +392,28 @@ class DeFiQA:
     def ask_contract(
         self,
         query,
+        model,
         print_message: bool = False,
     ) -> str:
         """Answers a query using GPT and a dataframe of relevant texts and embeddings."""
-        message = self.query_contract(query)
+        messages = self.get_messages_contract(query, 1, model)
         if print_message:
-            print(message)
-        messages = [
-            {
-                "role": "system",
-                "content": f"You answer questions provided Smart Contracts belonging to a DeFi protocol named: {self.repo_name}",
-            },
-            {"role": "user", "content": message},
-        ]
-        response = openai.ChatCompletion.create(
-            model=CHAT_MODEL, messages=messages, temperature=0
-        )
-        response_message = response["choices"][0]["message"]["content"]
-        return response_message
+            [print(message, "\n\n") for message in messages]
+
+        response_messages = []
+        # print("len messages", len(messages))
+        # print("messages-----", messages)
+        for message in messages:
+            gpt_messages = [
+                {
+                    "role": "system",
+                    "content": "You answer questions about provided Smart Contracts belonging to a DeFi protocol",
+                },
+                {"role": "user", "content": message},
+            ]
+            response = openai.ChatCompletion.create(
+                model=CODE_MODEL, messages=gpt_messages, temperature=0
+            )
+            response_messages.append(response["choices"][0]["message"]["content"])
+            # print("Part Answer:", response["choices"][0]["message"]["content"])
+        return "\n\n".join(response_messages)

@@ -18,18 +18,20 @@ BLACKLIST = [
 ]
 
 # Models used
-CHAT_MODEL = "gpt-3.5-turbo"
+DOC_MODEL = "gpt-3.5-turbo"
 CODE_MODEL = "gpt-3.5-turbo"
 EMBEDDING_MODEL = "text-embedding-ada-002"  # OpenAI's best embeddings as of Apr 2023
 
+OPENAI_API_KEY = "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"
 
-API_KEY = "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"
+GITHUB_PA_TOKEN = "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"
 
 # Size
 BATCH_SIZE = 1000  # you can submit up to 2048 embedding inputs per request
 MAX_TOKENS_PER_EMBEDDING = 1000
 MAX_TOKENS_PER_QUERY = 4096 - 500
 TOP_N = 5  # number of top ranked texts to consider for query message
+TOP_N_CONTRACT = 12  # number of top ranked texts to consider for query message
 
 # Paths
 SAVE_PATH = Path("saved")

@@ -1,6 +1,7 @@
+import os
 import streamlit as st
 from DeFiQA import DeFiQA
-from config import SAVE_PATH
+from config import DOC_MODEL, CODE_MODEL
 import shutil
 
 if st.session_state.get("begin_doc_query") is None:
@@ -8,13 +9,22 @@ if st.session_state.get("begin_doc_query") is None:
 if st.session_state.get("begin_contract_query") is None:
     st.session_state["begin_contract_query"] = 0
 
+
 st.title("Q-A Bot")
 
-st.button(
-    "Clear all cache",
-    on_click=lambda path: shutil.rmtree(path) if path.exists() else None,
-    args=(SAVE_PATH,),
-)
+
+def clear_cache():
+    if st.session_state.get("qa"):
+        paths = [
+            st.session_state.get("qa").embeddings_path_doc,
+            st.session_state.get("qa").embeddings_path_contract,
+            st.session_state.get("qa").contracts_path.parent,
+        ]
+        for path in paths:
+            os.remove(path) if path.is_file() else shutil.rmtree(path)
+    else:
+        st.write("Please provide a URL first!")
+
 
 with st.form("url_form"):
     doc_url = st.text_input(
@@ -41,8 +51,15 @@ with st.form("url_form"):
                 if contract_url:
                     st.write("Contracts:", st.session_state["qa"].conracts_dir_url)
                     st.session_state["begin_contract_query"] = 1
-        except:
+        except Exception:
             st.write("Bad URL!")
+            st.write(Exception)
+
+if submitted:
+    st.button(
+        "Clear cache",
+        on_click=clear_cache,
+    )
 
 
 if st.session_state["begin_doc_query"] == 1:
@@ -54,8 +71,8 @@ if st.session_state["begin_doc_query"] == 1:
         if submitted:
             st.write("Question: ", query)
             with st.spinner("Fetching the answer..."):
-                answer = st.session_state["qa"].ask_doc(query)
-                st.write("Answer", answer)
+                answer = st.session_state["qa"].ask_doc(query, DOC_MODEL)
+                st.write("Answer: ", answer)
 
 if st.session_state["begin_contract_query"] == 1:
     with st.form("query_contract_form"):
@@ -68,5 +85,5 @@ if st.session_state["begin_contract_query"] == 1:
         if submitted:
             st.write("Question: ", query)
             with st.spinner("Fetching the answer..."):
-                answer = st.session_state["qa"].ask_contract(query)
+                answer = st.session_state["qa"].ask_contract(query, CODE_MODEL, print_message=True)
                 st.write("Answer", answer)

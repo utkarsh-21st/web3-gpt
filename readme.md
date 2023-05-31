@@ -19,5 +19,5 @@
 
 ### Example URLS:
 - https://docs.lyra.finance/overview/how-does-lyra-work, https://github.com/lyra-finance/lyra-protocol/tree/master/contracts
-- https://gmxio.gitbook.io/gmx/
+- https://gmxio.gitbook.io/gmx/, https://github.com/gmx-io/gmx-contracts/tree/master/contracts
 

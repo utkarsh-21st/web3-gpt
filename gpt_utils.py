@@ -1,14 +1,12 @@
 import tiktoken
-from config import CHAT_MODEL
 
-
-def num_tokens(text: str) -> int:
+def num_tokens(text: str, model: str) -> int:
     """Return the number of tokens in a string."""
-    encoding = tiktoken.encoding_for_model(CHAT_MODEL)
+    encoding = tiktoken.encoding_for_model(model)
     return len(encoding.encode(text))
 
 
-def halved_by_delimiter(string: str, delimiter: str = "\n") -> list[str, str]:
+def halved_by_delimiter(string: str, delimiter: str, model: str) -> list[str, str]:
     """Split a string in two, on a delimiter, trying to balance tokens on each side."""
     chunks = string.split(delimiter)
     if len(chunks) == 1:
@@ -16,12 +14,12 @@ def halved_by_delimiter(string: str, delimiter: str = "\n") -> list[str, str]:
     elif len(chunks) == 2:
         return chunks  # no need to search for halfway point
     else:
-        total_tokens = num_tokens(string)
+        total_tokens = num_tokens(string, model)
         halfway = total_tokens // 2
         best_diff = halfway
         for i, chunk in enumerate(chunks):
             left = delimiter.join(chunks[: i + 1])
-            left_tokens = num_tokens(left)
+            left_tokens = num_tokens(left, model)
             diff = abs(halfway - left_tokens)
             if diff >= best_diff:
                 break
