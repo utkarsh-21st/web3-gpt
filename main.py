@@ -17,6 +17,8 @@ TODO: In case of contracts, use as much code as possible, possibly using multipl
 TODO: format contract(.sol) after downloading
 
 TODO: context is system vs message
+
+TODO: lacking context in contracts Q/A?
 """
 
 
@@ -26,7 +28,8 @@ def main():
     qa = DeFiQA(doc_url, contract_url)  # clear_cache=True
     # qa = DeFiQA(
     #     "https://docs.lyra.finance/overview/how-does-lyra-work",
-    #     "https://github.com/lyra-finance/lyra-protocol/tree/master/contracts",
+    #     None,
+    #     # "https://github.com/lyra-finance/lyra-protocol/tree/master/contracts",
     # )
     # qa = DeFiQA(
     #     "https://gmxio.gitbook.io/gmx/",

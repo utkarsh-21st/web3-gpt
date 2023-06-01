@@ -36,6 +36,23 @@ class DeFiQA:
         self.doc_url = doc_url
         self.conracts_dir_url = conracts_dir_url
 
+        self.doc_name = None
+        self.urls = []
+        self.urls_response = {}
+        self.texts = []
+        self.text_headings = []
+        self.embeddings_doc = []
+        self.embeddings_path_doc = None
+        self.embeddings_df_doc = pd.DataFrame()
+
+        self.code_names = []
+        self.codes = []
+        self.embeddings_contract = []
+        self.embeddings_path_contract = None
+        self.embeddings_df_contract = pd.DataFrame()
+        self.repo_name = None
+        self.contracts_name = None
+
         # docs
         if self.doc_url:
             try:
@@ -48,14 +65,8 @@ class DeFiQA:
                 print("Exiting...")
                 sys.exit()
 
-            self.doc_name = self.doc_url.split("//")[1]
-            self.urls = []
-            self.urls_response = {}
-            self.texts = []
-            self.text_headings = []
-            self.embeddings_doc = []
+            self.doc_name = self.doc_url.split("//")[1] if self.doc_url else None
             self.embeddings_path_doc = SAVE_PATH / (self.doc_name + ".csv")
-            self.embeddings_df_doc = pd.DataFrame()
 
             if clear_cache:
                 print(f"Clearing cache for {self.doc_url}")
@@ -75,13 +86,6 @@ class DeFiQA:
             )
 
         # contracts
-        self.code_names = []
-        self.codes = []
-        self.embeddings_contract = []
-        self.embeddings_path_contract = SAVE_PATH / (self.doc_name + ".csv")
-        self.embeddings_df_contract = pd.DataFrame()
-        self.repo_name = None
-        self.contracts_name = None
         if self.conracts_dir_url:
             try:
                 match = re.search("https://github.com/([^/]+)/?", self.conracts_dir_url)
@@ -94,6 +98,7 @@ class DeFiQA:
                 print("Exiting...")
                 sys.exit()
 
+            self.embeddings_path_contract = SAVE_PATH / (self.repo_name + ".csv")
             self.contracts_path = TEMP_PATH / self.repo_name / self.contracts_name
             self.embeddings_contract = []
             self.embeddings_path_contract = SAVE_PATH / (
@@ -372,22 +377,25 @@ class DeFiQA:
         model,
         print_message: bool = False,
     ) -> str:
-        """Answers a query using GPT and a dataframe of relevant texts and embeddings."""
-        message = self.get_message_doc(query, model)
-        if print_message:
-            print(message)
-        messages = [
-            {
-                "role": "system",
-                "content": "You answer questions about a DeFi protocol",
-            },
-            {"role": "user", "content": message},
-        ]
-        response = openai.ChatCompletion.create(
-            model=DOC_MODEL, messages=messages, temperature=0
-        )
-        response_message = response["choices"][0]["message"]["content"]
-        return response_message
+        if self.doc_url:
+            """Answers a query using GPT and a dataframe of relevant texts and embeddings."""
+            message = self.get_message_doc(query, model)
+            if print_message:
+                print(message)
+            messages = [
+                {
+                    "role": "system",
+                    "content": "You answer questions about a DeFi protocol",
+                },
+                {"role": "user", "content": message},
+            ]
+            response = openai.ChatCompletion.create(
+                model=DOC_MODEL, messages=messages, temperature=0
+            )
+            response_message = response["choices"][0]["message"]["content"]
+            return response_message
+        else:
+            print("No docs were provided")
 
     def ask_contract(
         self,
@@ -395,25 +403,28 @@ class DeFiQA:
         model,
         print_message: bool = False,
     ) -> str:
-        """Answers a query using GPT and a dataframe of relevant texts and embeddings."""
-        messages = self.get_messages_contract(query, 1, model)
-        if print_message:
-            [print(message, "\n\n") for message in messages]
+        if self.conracts_dir_url:
+            """Answers a query using GPT and a dataframe of relevant texts and embeddings."""
+            messages = self.get_messages_contract(query, 1, model)
+            if print_message:
+                [print(message, "\n\n") for message in messages]
 
-        response_messages = []
-        # print("len messages", len(messages))
-        # print("messages-----", messages)
-        for message in messages:
-            gpt_messages = [
-                {
-                    "role": "system",
-                    "content": "You answer questions about provided Smart Contracts belonging to a DeFi protocol",
-                },
-                {"role": "user", "content": message},
-            ]
-            response = openai.ChatCompletion.create(
-                model=CODE_MODEL, messages=gpt_messages, temperature=0
-            )
-            response_messages.append(response["choices"][0]["message"]["content"])
-            # print("Part Answer:", response["choices"][0]["message"]["content"])
-        return "\n\n".join(response_messages)
+            response_messages = []
+            # print("len messages", len(messages))
+            # print("messages-----", messages)
+            for message in messages:
+                gpt_messages = [
+                    {
+                        "role": "system",
+                        "content": "You answer questions about provided Smart Contracts belonging to a DeFi protocol",
+                    },
+                    {"role": "user", "content": message},
+                ]
+                response = openai.ChatCompletion.create(
+                    model=CODE_MODEL, messages=gpt_messages, temperature=0
+                )
+                response_messages.append(response["choices"][0]["message"]["content"])
+                # print("Part Answer:", response["choices"][0]["message"]["content"])
+            return "\n\n".join(response_messages)
+        else:
+            print("No contracts were provided")
