@@ -57,23 +57,23 @@ def parse_args():
 
 def main():
     parse_args()
-    # doc_url = input("Enter a gitbook URL: ")
+    doc_url = input("Enter a gitbook URL: ")
     # contract_url = input("Enter an URL of a github contracts directory: ")
-    # qa = DeFiQA(doc_url, contract_url)  # clear_cache=True
-    qa = DeFiQA(*URLS[2], args.clear_cache, args.clear_contracts_cache)
+    qa = DeFiQA(doc_url, clear_cache=args.clear_cache)
+    # qa = DeFiQA(*URLS[2], args.clear_cache, args.clear_contracts_cache)
     while True:
         query = input("Question:")
         # query = "Provide a list of all contracts along with a brief description"
-        answer_doc = qa.ask_doc(query, DOC_MODEL, print_message=True)
+        answer_doc = qa.ask_doc(query, DOC_MODEL)
         print("Answer from docs:", answer_doc, end="\n")
-        contract_names = extract_contract_names_as_list(answer_doc, openai, DOC_MODEL)
-        print("contract_names", contract_names)
-        load_more = True if input("Load more...(y/n)").lower() == "y" else False
-        if load_more:
-            answer_contract = qa.ask_contract(
-                contract_names, query, print_message=True
-            )
-            print("Answer from code:", answer_contract, end="\n")
+        # contract_names = extract_contract_names_as_list(answer_doc, openai, DOC_MODEL)
+        # print("contract_names", contract_names)
+        # load_more = True if input("Load more...(y/n)").lower() == "y" else False
+        # if load_more:
+        #     answer_contract = qa.ask_contract(
+        #         contract_names, query, print_message=True
+        #     )
+        #     print("Answer from code:", answer_contract, end="\n")
         # break
         # answer = answer_doc + '\n'*2 + answer_contract
         # print("Answer:", answer)

@@ -108,57 +108,60 @@ class DeFiQA:
             self.scrape_urls_recursively()
             self.read_text_from_url()
 
-            # TODO:
-            # i = 0
-            for path in self.contracts_path.rglob("*"):
+            if self.conracts_dir_url:
                 # TODO:
-                # if i == 2:
-                #     break
-                if path.is_file() and path.suffix == ".sol":
+                # i = 0
+                for path in self.contracts_path.rglob("*"):
                     # TODO:
-                    # i += 1
-                    dir_name = (
-                        path.parts[-2] if path.parts[-2].lower() != "contracts" else ""
-                    )
-                    with open(path, "r") as file:
-                        print("going through path", path)
-                        contract = file.read()
-                        introduction = "Below is the code of a Smart Contract. Give a detailed explaination of it."
-                        question = ""
-                        split_messages = []
-
-                        split_contracts = self.split_contract(
-                            introduction, contract, question, CODE_MODEL
+                    # if i == 2:
+                    #     break
+                    if path.is_file() and path.suffix == ".sol":
+                        # TODO:
+                        # i += 1
+                        dir_name = (
+                            path.parts[-2]
+                            if path.parts[-2].lower() != "contracts"
+                            else ""
                         )
-                        for split_contract in split_contracts:
-                            split_message = introduction + split_contract + question
-                            split_messages.append(split_message)
-                        for split_message in split_messages:
-                            chat_responses = []
-                            chat_response = get_chat_completion_response(
-                                openai,
-                                CODE_MODEL,
-                                "You answer questions about provided Smart Contracts belonging to a DeFi protocol.",
-                                split_message,
+                        with open(path, "r") as file:
+                            print("going through path", path)
+                            contract = file.read()
+                            introduction = "Below is the code of a Smart Contract. Give a detailed explaination of it."
+                            question = ""
+                            split_messages = []
+
+                            split_contracts = self.split_contract(
+                                introduction, contract, question, CODE_MODEL
                             )
-                            chat_responses.append(chat_response)
+                            for split_contract in split_contracts:
+                                split_message = introduction + split_contract + question
+                                split_messages.append(split_message)
+                            for split_message in split_messages:
+                                chat_responses = []
+                                chat_response = get_chat_completion_response(
+                                    openai,
+                                    CODE_MODEL,
+                                    "You answer questions about provided Smart Contracts belonging to a DeFi protocol.",
+                                    split_message,
+                                )
+                                chat_responses.append(chat_response)
 
-                        contract_summary = "\n\n".join(chat_responses)
+                            contract_summary = "\n\n".join(chat_responses)
 
-                        self.texts.append(contract_summary)
-                        self.text_headings.append(
-                            f"Contract: {dir_name}, {path.parts[-1]}"
-                        )
-                    self.contract_names.append(path.stem)
+                            self.texts.append(contract_summary)
+                            self.text_headings.append(
+                                f"Contract: {dir_name}, {path.parts[-1]}"
+                            )
+                        self.contract_names.append(path.stem)
 
-            contract_names_description = (
-                f"The {self.repo_name} consists of the following contracts:\n"
-            )
-            for i, contract_name in enumerate(self.contract_names):
-                contract_names_description += f"{i+1}. {contract_name}\n"
+                contract_names_description = (
+                    f"The {self.repo_name} consists of the following contracts:\n"
+                )
+                for i, contract_name in enumerate(self.contract_names):
+                    contract_names_description += f"{i+1}. {contract_name}\n"
 
-            self.texts.append(contract_names_description)
-            self.text_headings.append("Contracts Summary:")
+                self.texts.append(contract_names_description)
+                self.text_headings.append("Contracts Summary:")
 
             self.calculate_and_save_doc_embeddings()
         else:

@@ -65,7 +65,9 @@ def get_answer_contracts(contract_names, query, answer_doc, answer_placeholder):
         answer_contract = answer_doc + "\n" * 2
         messages = st.session_state["qa"].get_messages_contract(contract_names, query)
         for i, message in enumerate(messages):
+            # TODO:
             print("i", i)
+            print("add", f"{i+1}. {contract_names[i]}:\n")
             answer_contract += f"{i+1}. {contract_names[i]}:\n"
             answer_placeholder.write(answer_contract)
             for split_message in message:
@@ -82,7 +84,9 @@ def get_answer_contracts(contract_names, query, answer_doc, answer_placeholder):
                         answer_placeholder.write(answer_contract)
                 answer_contract += "\n"
                 answer_placeholder.write(answer_contract)
+                print("answer_contract 1 slash", answer_contract)
             answer_contract += "\n\n"
+            print("answer_contract 2 slash", answer_contract)
             answer_placeholder.write(answer_contract)
 
 
