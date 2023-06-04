@@ -1,23 +1,25 @@
 import os
 import streamlit as st
 from DeFiQA import DeFiQA
-from config import DOC_MODEL, CODE_MODEL
+from config import DOC_MODEL, CODE_MODEL, OPENAI_API_KEY
+from gpt_utils import extract_contract_names_as_list, get_chat_completion_response
 import shutil
+import openai
 
-if st.session_state.get("begin_doc_query") is None:
-    st.session_state["begin_doc_query"] = 0
-if st.session_state.get("begin_contract_query") is None:
-    st.session_state["begin_contract_query"] = 0
+openai.api_key = OPENAI_API_KEY
 
+if st.session_state.get("begin_query") is None:
+    st.session_state["begin_query"] = 0
+if st.session_state.get("begin_query_doc") is None:
+    st.session_state["begin_query_doc"] = 0
 
 st.title("Q-A Bot")
 
 
-def clear_cache():
+def clear_all_cache():
     if st.session_state.get("qa"):
         paths = [
             st.session_state.get("qa").embeddings_path_doc,
-            st.session_state.get("qa").embeddings_path_contract,
             st.session_state.get("qa").contracts_path.parent,
         ]
         for path in paths:
@@ -45,45 +47,76 @@ with st.form("url_form"):
                 st.session_state["qa"] = DeFiQA(
                     doc_url, contract_url
                 )  # clear_cache=True
-                if doc_url:
+                if doc_url and contract_url:
                     st.write("Docs:", st.session_state["qa"].doc_url)
-                    st.session_state["begin_doc_query"] = 1
-                if contract_url:
-                    st.write("Contracts:", st.session_state["qa"].conracts_dir_url)
-                    st.session_state["begin_contract_query"] = 1
+                    st.session_state["begin_query"] = 1
         except Exception:
             st.write("Bad URL!")
             st.write(Exception)
 
 if submitted:
     st.button(
-        "Clear cache",
-        on_click=clear_cache,
+        "Clear all cache", on_click=clear_all_cache, help="Not allowed", disabled=True
     )
 
 
-if st.session_state["begin_doc_query"] == 1:
-    with st.form("query_doc_form"):
-        query = st.text_input(
-            "Ask Docs", key="question_doc", placeholder="How much is the deposit fee?"
-        )
-        submitted = st.form_submit_button("Submit")
-        if submitted:
-            st.write("Question: ", query)
-            with st.spinner("Fetching the answer..."):
-                answer = st.session_state["qa"].ask_doc(query, DOC_MODEL)
-                st.write("Answer: ", answer)
+def get_answer_contracts(contract_names, query, answer_doc, answer_placeholder):
+    with st.spinner("Fetching the answer"):
+        answer_contract = answer_doc + "\n" * 2
+        messages = st.session_state["qa"].get_messages_contract(contract_names, query)
+        for i, message in enumerate(messages):
+            print("i", i)
+            answer_contract += f"{i+1}. {contract_names[i]}:\n"
+            answer_placeholder.write(answer_contract)
+            for split_message in message:
+                answer_chunk_contract = get_chat_completion_response(
+                    openai,
+                    CODE_MODEL,
+                    "You answer questions about provided Smart Contracts belonging to a DeFi protocol. You never mention the source of your answer",
+                    split_message,
+                    stream=True,
+                )
+                for chunk in answer_chunk_contract:
+                    if chunk["choices"][0]["delta"].get("content"):
+                        answer_contract += chunk["choices"][0]["delta"]["content"]
+                        answer_placeholder.write(answer_contract)
+                answer_contract += "\n"
+                answer_placeholder.write(answer_contract)
+            answer_contract += "\n\n"
+            answer_placeholder.write(answer_contract)
 
-if st.session_state["begin_contract_query"] == 1:
-    with st.form("query_contract_form"):
+
+if st.session_state["begin_query"] == 1:
+    with st.form("query_form"):
         query = st.text_input(
-            "Ask Contracts",
-            key="question_contract",
-            placeholder='explain the "getBoardAndStrikeDetails" function of optionmarket contract',
+            "Ask", key="question_doc", placeholder="How much is the deposit fee?"
         )
         submitted = st.form_submit_button("Submit")
         if submitted:
-            st.write("Question: ", query)
-            with st.spinner("Fetching the answer..."):
-                answer = st.session_state["qa"].ask_contract(query, CODE_MODEL, print_message=True)
-                st.write("Answer", answer)
+            st.session_state["begin_query_doc"] = 1
+
+
+if st.session_state["begin_query_doc"] == 1:
+    contract_names = []
+    answer_doc = ""
+    st.write("Question: ", query)
+    answer_placeholder = st.empty()
+    spinner = st.spinner("Fetching the answer...")
+    with spinner:
+        answer_doc = ""
+        answer_chunk_doc = st.session_state["qa"].ask_doc(query, DOC_MODEL, stream=True)
+        for chunk in answer_chunk_doc:
+            print("chunk", chunk)
+            if chunk["choices"][0]["delta"].get("content"):
+                answer_doc += chunk["choices"][0]["delta"]["content"]
+                answer_placeholder.write(answer_doc)
+
+        contract_names = extract_contract_names_as_list(answer_doc, openai, DOC_MODEL)
+    print("contract_names, query", contract_names, query)
+    if len(contract_names):
+        st.button(
+            "more...",
+            on_click=get_answer_contracts,
+            args=(contract_names, query, answer_doc, answer_placeholder),
+        )
+    st.session_state["begin_query_doc"] = 0
