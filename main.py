@@ -58,35 +58,30 @@ def parse_args():
 def main():
     parse_args()
     doc_url = input("Enter a gitbook URL: ")
-    # contract_url = input("Enter an URL of a github contracts directory: ")
-    qa = DeFiQA(doc_url, clear_cache=args.clear_cache)
-    # qa = DeFiQA(*URLS[2], args.clear_cache, args.clear_contracts_cache)
+    contract_url = input("Enter an URL of a github contracts directory: ")
+    # qa = DeFiQA(doc_url, contract_url, clear_cache=args.clear_cache)
+    qa = DeFiQA(*URLS[0], args.clear_cache, args.clear_contracts_cache)
     while True:
         query = input("Question:")
-        try:
-            queries = get_multiple_queries(query, openai, DOC_MODEL)
-        except Exception as e:
-            print(">> Couldn't get multiple queries", e)
-            queries = [query]
+        queries = get_multiple_queries(query, openai, DOC_MODEL)
 
         [print("Question:", query) for query in queries]
 
         # queries = ["Provide a list of all contracts along ith a brief description"]
         answer_doc = ""
-        for query in queries:
-            answer_doc += qa.ask_doc(query, DOC_MODEL) + "\n\n"
+        for query_split in queries:
+            answer_doc += qa.ask_doc(query_split, DOC_MODEL) + "\n\n"
         print("Answer from docs:", answer_doc, end="\n")
         contract_names = extract_contract_names_as_list(answer_doc, openai, DOC_MODEL)
         print("contract_names", contract_names)
-        # load_more = True if input("Load more...(y/n)").lower() == "y" else False
-        # if load_more:
-        #     answer_contract = qa.ask_contract(
-        #         contract_names, query, print_message=True
-        #     )
-        #     print("Answer from code:", answer_contract, end="\n")
+        load_more = True if input("Load more...(y/n)").lower() == "y" else False
+        answer = answer_doc
+        if load_more:
+            answer_contract = qa.ask_contract(contract_names, query, print_message=True)
+            print("Answer from code:", answer_contract, end="\n")
+            answer += "\n" * 2 + answer_contract
+        print("Answer:", answer)
         # break
-        # answer = answer_doc + '\n'*2 + answer_contract
-        # print("Answer:", answer)
 
 
 if __name__ == "__main__":

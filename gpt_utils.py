@@ -72,15 +72,21 @@ def get_chat_completion_response(openai, model, content, message, stream=False):
 
 
 def extract_contract_names_as_list(answer_doc, openai, model):
-    introduction = "The given text might contain the name of smart contracts. Your task is to identify and just output a python list of them."
-    message = f"{introduction}\n\nText:{answer_doc}\n\n"
-    content = "You are a helpful bot. You do as instructed"
-    chat_response = get_chat_completion_response(openai, model, content, message)
-    match = re.search("(\[.*\])", chat_response)
-    contract_names = eval(match.group(1))
-    contract_names = list(
-        map(lambda s: s.split(".")[-2] if ".sol" in s.lower() else s, contract_names)
-    )
+    contract_names = []
+    try:
+        introduction = "The given text might contain the name of smart contracts. Your task is to identify all of them and just output a python list of them with each element as string. Don't output partial names"
+        message = f"{introduction}\n\nText:{answer_doc}\n\n"
+        content = "You are a helpful bot. You do as instructed"
+        chat_response = get_chat_completion_response(openai, model, content, message)
+        match = re.search("(\[.*\])", chat_response)
+        contract_names = eval(match.group(1))
+        contract_names = list(
+            map(
+                lambda s: s.split(".")[-2] if ".sol" in s.lower() else s, contract_names
+            )
+        )
+    except Exception as e:
+        print(">> Couldn't extract contract names", e)
     return contract_names
 
 
@@ -98,56 +104,69 @@ def get_contracts(contract_names, contracts_path):
 
 
 def get_multiple_queries(query, openai, model):
-    content = "You follow a consistent style"
-    introduction = "You are given a question below. The question may talk about multiple topics. Split the question into multiple questions on that topic. Each resulting question must be about a different topic. Also, the output must be a python list of questions."
-    query1 = "{Do vaults have withdraw and deposit functionality. If so, tell about the associated fees in both cases. Answer in detail.}"
-    answer1 = "['Do vaults have withdraw functionality. If so, tell about the associated fee. Answer in detail.', Do vaults have deposit functionality. If so, tell about the associated fee. Answer in detail.]"
-    message1 = f"{introduction}\n\nQuestion:{query1}\n\n"
+    try:
+        content = "You follow a consistent style"
+        introduction = "You are given a question below. The question may talk about multiple topics. Split the question into multiple questions on that topic. Each resulting question must be about a different topic. Also, the output must be a python list of questions."
+        query1 = "{Do vaults have withdraw and deposit functionality. If so, tell about the associated fees in both cases. Answer in detail.}"
+        answer1 = "['Do vaults have withdraw functionality. If so, tell about the associated fee. Answer in detail.', Do vaults have deposit functionality. If so, tell about the associated fee. Answer in detail.]"
+        message1 = f"{introduction}\n\nQuestion:{query1}\n\n"
 
-    query2 = "{Using the documentation provided, explain in detail in points on the following in max 1000 char. Fees, Fees Distribution, Rewards Distribution, Risks associated. Use more prominent features of the protocol to make points as necessary.}"
-    answer2 = "['Using the documentation provided, explain in detail in points on Fees associated in max 1000 char. Use more prominent features of the protocol to make points as necessary.', 'Using the documentation provided, explain in detail in points on Fees Distribution associated in max 1000 char. Use more prominent features of the protocol to make points as necessary.', 'Using the documentation provided, explain in detail in points on Rewards Distributionassociated in max 1000 char. Use more prominent features of the protocol to make points as necessary.', 'Using the documentation provided, explain in detail in points on Risks associated in max 1000 char. Use more prominent features of the protocol to make points as necessary.']"
-    message2 = f"{introduction}\n\nQuestion:{query2}\n\n"
-    query3 = (
-        "{Explain rewards and fee distribution in context of vaults. Answer in points.}"
-    )
-    answer3 = "['Explain reward distribution in context of vaults. Answer in points.', 'Explain fee distribution in context of vaults. Answer in points.']"
-    message3 = f"{introduction}\n\nQuestion:{query3}\n\n"
-    query4 = "{Show all contract addresses}"
-    answer4 = "['Show all contract addresses']"
-    message4 = f"{introduction}\n\nQuestion:{query4}\n\n"
-    query5 = "{What are the risks involved}"
-    answer5 = "['What are the risks involved']"
-    message5 = f"{introduction}\n\nQuestion:{query5}\n\n"
-    # query5 = "{Show all vaults which have a deposit fee}"
-    # answer5 = "['What are the risks involved']"
-    # message5 = f"{introduction}\n\nQuestion:{query5}\n\n"
+        query2 = "{Using the documentation provided, explain in detail in points on the following in max 1000 char. Fees, Fees Distribution, Rewards Distribution, Risks associated. Use more prominent features of the protocol to make points as necessary.}"
+        answer2 = "['Using the documentation provided, explain in detail in points on Fees associated in max 1000 char. Use more prominent features of the protocol to make points as necessary.', 'Using the documentation provided, explain in detail in points on Fees Distribution associated in max 1000 char. Use more prominent features of the protocol to make points as necessary.', 'Using the documentation provided, explain in detail in points on Rewards Distributionassociated in max 1000 char. Use more prominent features of the protocol to make points as necessary.', 'Using the documentation provided, explain in detail in points on Risks associated in max 1000 char. Use more prominent features of the protocol to make points as necessary.']"
+        message2 = f"{introduction}\n\nQuestion:{query2}\n\n"
+        query3 = "{Explain rewards and fee distribution in context of vaults. Answer in points.}"
+        answer3 = "['Explain reward distribution in context of vaults. Answer in points.', 'Explain fee distribution in context of vaults. Answer in points.']"
+        message3 = f"{introduction}\n\nQuestion:{query3}\n\n"
+        query4 = "{Show all contract addresses}"
+        answer4 = "['Show all contract addresses']"
+        message4 = f"{introduction}\n\nQuestion:{query4}\n\n"
+        query5 = "{What are the risks involved}"
+        answer5 = "['What are the risks involved']"
+        message5 = f"{introduction}\n\nQuestion:{query5}\n\n"
+        query6 = "{Provide a brief description of all the contracts along with their addresses}"
+        answer6 = "['Provide a brief description of all the contracts', 'Provide the addresses of all the contracts']"
+        message6 = f"{introduction}\n\nQuestion:{query6}\n\n"
+        query7 = "{What are positions in Lyra and how to open and close them? Explain in detail. Also compare them with the industry standard}"
+        answer7 = "['What are positions in Lyra? Explain in detail. Also compare them with the industry standard.', 'How to open and close positions in Lyra? Explain in detail. Also compare them with the industry standard.']"
+        message7 = f"{introduction}\n\nQuestion:{query7}\n\n"
+        # query5 = "{Show all vaults which have a deposit fee}"
+        # answer5 = "['What are the risks involved']"
+        # message5 = f"{introduction}\n\nQuestion:{query5}\n\n"
 
-    # content = "You are given a question below related to a DeFi protocol. Split the question into multiple questions if required while avoiding repetition of questions. Also, the output must be a python list of questions."
-    # introduction = "You are given a question below related to a DeFi protocol. Split the question into multiple questions if required while avoiding repetition of questions. Also, the output must be a python list of questions."
-    # introduction = "You are given a question below which may talk about multiple topics. Form multiple questions if the question talks about multiple topics, with each question talking about a single topic. Also, the output must be a python list of questions."
-    # query = "{Using the documentation provided for Agility Finance, prepare a short introduction text covering the following points in max 250 char per point and upto 10 points. About, Minting/Withdraw features, Fees, Expected returns. Use more prominent features of Agility protocols to make points as necessary}"
-    # query = "{explain stage one, stage two}"
-    query = "{" + query + "}"
-    message = f"{introduction}\n\nQuestion:{query}\n\n"
+        # content = "You are given a question below related to a DeFi protocol. Split the question into multiple questions if required while avoiding repetition of questions. Also, the output must be a python list of questions."
+        # introduction = "You are given a question below related to a DeFi protocol. Split the question into multiple questions if required while avoiding repetition of questions. Also, the output must be a python list of questions."
+        # introduction = "You are given a question below which may talk about multiple topics. Form multiple questions if the question talks about multiple topics, with each question talking about a single topic. Also, the output must be a python list of questions."
+        # query = "{Using the documentation provided for Agility Finance, prepare a short introduction text covering the following points in max 250 char per point and upto 10 points. About, Minting/Withdraw features, Fees, Expected returns. Use more prominent features of Agility protocols to make points as necessary}"
+        # query = "{explain stage one, stage two}"
+        query = "{" + query + "}"
+        message = f"{introduction}\n\nQuestion:{query}\n\n"
 
-    gpt_messages = [
-        {
-            "role": "system",
-            "content": content,
-        },
-        {"role": "user", "content": message1},
-        {"role": "assistant", "content": answer1},
-        {"role": "user", "content": message2},
-        {"role": "assistant", "content": answer2},
-        {"role": "user", "content": message3},
-        {"role": "assistant", "content": answer3},
-        {"role": "user", "content": message4},
-        {"role": "assistant", "content": answer4},
-        {"role": "user", "content": message5},
-        {"role": "assistant", "content": answer5},
-        {"role": "user", "content": message},
-    ]
-    response = openai.ChatCompletion.create(
-        model=model, messages=gpt_messages, temperature=0
-    )
-    return eval(response["choices"][0]["message"]["content"])
+        gpt_messages = [
+            {
+                "role": "system",
+                "content": content,
+            },
+            {"role": "user", "content": message1},
+            {"role": "assistant", "content": answer1},
+            {"role": "user", "content": message2},
+            {"role": "assistant", "content": answer2},
+            {"role": "user", "content": message3},
+            {"role": "assistant", "content": answer3},
+            {"role": "user", "content": message4},
+            {"role": "assistant", "content": answer4},
+            {"role": "user", "content": message5},
+            {"role": "assistant", "content": answer5},
+            {"role": "user", "content": message6},
+            {"role": "assistant", "content": answer6},
+            {"role": "user", "content": message7},
+            {"role": "assistant", "content": answer7},
+            {"role": "user", "content": message},
+        ]
+        response = openai.ChatCompletion.create(
+            model=model, messages=gpt_messages, temperature=0
+        )
+        queries = eval(response["choices"][0]["message"]["content"])
+    except Exception as e:
+        print(">> Couldn't get multiple queries", e)
+        queries = [query]
+    return queries

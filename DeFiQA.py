@@ -124,7 +124,7 @@ class DeFiQA:
                             else ""
                         )
                         with open(path, "r") as file:
-                            print("going through path", path)
+                            print("going through", path)
                             contract = file.read()
                             introduction = "Below is the code of a Smart Contract. Give a detailed explaination of it."
                             question = ""

@@ -97,7 +97,7 @@ def get_answer_contracts(contract_names, query, answer_doc, answer_placeholder):
 if st.session_state["begin_query"] == 1:
     with st.form("query_form"):
         query = st.text_input(
-            "Ask", key="question_doc", placeholder="How much is the deposit fee?"
+            "Ask", key="question_doc", placeholder="What are positions in Lyra and how to open and close them? Explain in detail."
         )
         submitted = st.form_submit_button("Submit")
         if submitted:
