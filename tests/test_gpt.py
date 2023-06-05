@@ -1,6 +1,10 @@
 import openai
 from config import CODE_MODEL, OPENAI_API_KEY, CODE_MODEL_MAX_TOKENS, DOC_MODEL
-from gpt_utils import truncate_string, get_chat_completion_response, get_multiple_queries
+from gpt_utils import (
+    truncate_string,
+    get_chat_completion_response,
+    get_multiple_queries,
+)
 
 openai.api_key = OPENAI_API_KEY
 
@@ -39,15 +43,17 @@ answer_doc = """AGI TimeLock: A contract that locks AGI tokens for a specified p
 # content = "You are a helpful bot. You do as instructed"
 
 model = DOC_MODEL
-introduction = "Refine the below text to make it coherent an consise. Remove any redundancies."
-string = '''The 0xAppl consists of two contracts:
+introduction = (
+    "Refine the below text to make it coherent an consise. Remove any redundancies."
+)
+string = """The 0xAppl consists of two contracts:
 1. TimeLock: A smart contract that allows the owner to queue and execute transactions with a delay. It provides a way to execute transactions at a specific time in the future, which can be useful for various purposes, such as scheduling payments or executing smart contract upgrades.
 2. MerkleDistributorWithDeadline: A smart contract that distributes tokens using a Merkle tree. It allows the owner to specify a deadline after which the distribution is no longer possible.
 There is only one contract provided in the code, named TimeLock. It is a smart contract that allows the owner to queue and execute transactions with a delay and a grace period. The purpose of this contract is to provide a time-locked mechanism for executing transactions, which can be useful in various DeFi protocols.
 There is only one contract in the provided code, which is:
 
 1. MerkleDistributorWithDeadline: This contract is a modified version of the MerkleDistributor contract and is used to distribute tokens to users based on a Merkle tree. It adds a deadline functionality to the distribution process, which means that users can only claim their tokens until a certain time. Additionally, it also allows the owner of the contract to withdraw any remaining tokens after the deadline has passed.
-'''
+"""
 message = f"{introduction}\n\nText:{string}\n\n"
 content = "You are a helpful bot. You do as instructed"
 
@@ -62,12 +68,5 @@ content = "You are a helpful bot. You do as instructed"
 # message = f"{introduction}\n\nQuestion:{string}\n\n"
 # content = "You are a helpful bot. You do as said"
 
-query = "Using the documentation provided for Agility Finance, prepare a short introduction text covering the following points in max 250 char per point and upto 10 points. About, Minting/Withdraw features, Fees, Expected returns. Use more prominent features of Agility protocols to make points as necessary"
-# query = "Explain options contract"
-# query = "explain withdraw/mint/deposit in the context of this protocol"
-# query = "What are positions in Lyra and how to open and close them? Explain in detail. Also compare them with the industry standard"
-query = "what is optionmarket contract in 100 words"
-print(get_multiple_queries(query, openai, model))
 
-
-# print(get_chat_completion_response(openai, model, content, message))
+print(get_chat_completion_response(openai, model, content, message))

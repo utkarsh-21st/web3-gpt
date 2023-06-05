@@ -108,9 +108,8 @@ def get_multiple_queries(query, openai, model):
         content = "You follow a consistent style"
         introduction = "You are given a question below. The question may talk about multiple topics. Split the question into multiple questions on that topic. Each resulting question must be about a different topic. Also, the output must be a python list of questions."
         query1 = "{Do vaults have withdraw and deposit functionality. If so, tell about the associated fees in both cases. Answer in detail.}"
-        answer1 = "['Do vaults have withdraw functionality. If so, tell about the associated fee. Answer in detail.', Do vaults have deposit functionality. If so, tell about the associated fee. Answer in detail.]"
+        answer1 = "['Do vaults have withdraw functionality. If so, tell about the associated fee. Answer in detail.', 'Do vaults have deposit functionality. If so, tell about the associated fee. Answer in detail.']"
         message1 = f"{introduction}\n\nQuestion:{query1}\n\n"
-
         query2 = "{Using the documentation provided, explain in detail in points on the following in max 1000 char. Fees, Fees Distribution, Rewards Distribution, Risks associated. Use more prominent features of the protocol to make points as necessary.}"
         answer2 = "['Using the documentation provided, explain in detail in points on Fees associated in max 1000 char. Use more prominent features of the protocol to make points as necessary.', 'Using the documentation provided, explain in detail in points on Fees Distribution associated in max 1000 char. Use more prominent features of the protocol to make points as necessary.', 'Using the documentation provided, explain in detail in points on Rewards Distributionassociated in max 1000 char. Use more prominent features of the protocol to make points as necessary.', 'Using the documentation provided, explain in detail in points on Risks associated in max 1000 char. Use more prominent features of the protocol to make points as necessary.']"
         message2 = f"{introduction}\n\nQuestion:{query2}\n\n"
@@ -129,12 +128,15 @@ def get_multiple_queries(query, openai, model):
         query7 = "{What are positions in Lyra and how to open and close them? Explain in detail. Also compare them with the industry standard}"
         answer7 = "['What are positions in Lyra? Explain in detail. Also compare them with the industry standard.', 'How to open positions in Lyra? Explain in detail. Also compare them with the industry standard.', 'How to close positions in Lyra? Explain in detail. Also compare them with the industry standard.']"
         message7 = f"{introduction}\n\nQuestion:{query7}\n\n"
-        # query8 = "{}"
-        # answer8 = "[]"
-        # message8 = f"{introduction}\n\nQuestion:{query8}\n\n"
-        query8 = "{explain withdraw/mint/deposit in the context of this protocol}"
-        answer8 = "['explain withdraw in the context of this protocol', 'explain mint in the context of this protocol', 'explain deposit in the context of this protocol']"
+        query8 = "{what is optionmarket contract in 100 words}"
+        answer8 = "['What is the optionmarket contract in 100 words']"
         message8 = f"{introduction}\n\nQuestion:{query8}\n\n"
+        query9 = "{Use the Url provided to find all the vaults, their adresses and their reward distribution. Answer should not exceed 50 words.}"
+        answer9 = "['Use the Url provided to find all the vaults. Answer should not exceed 50 words.', 'Use the Url provided to find all the vault adresses. Answer should not exceed 50 words.', 'Use the Url provided to find reward distribution of all the vaults. Answer should not exceed 50 words.']"
+        message9 = f"{introduction}\n\nQuestion:{query9}\n\n"
+        # query9 = "{explain withdraw/mint/deposit in the context of this protocol}"
+        # answer9 = "['explain withdraw in the context of this protocol', 'explain mint in the context of this protocol', 'explain deposit in the context of this protocol']"
+        # message9 = f"{introduction}\n\nQuestion:{query9}\n\n"
         # query5 = "{Show all vaults which have a deposit fee}"
         # answer5 = "['What are the risks involved']"
         # message5 = f"{introduction}\n\nQuestion:{query5}\n\n"
@@ -166,8 +168,10 @@ def get_multiple_queries(query, openai, model):
             {"role": "assistant", "content": answer6},
             {"role": "user", "content": message7},
             {"role": "assistant", "content": answer7},
-            # {"role": "user", "content": message8},
-            # {"role": "assistant", "content": answer8},
+            {"role": "user", "content": message8},
+            {"role": "assistant", "content": answer8},
+            {"role": "user", "content": message9},
+            {"role": "assistant", "content": answer9},
             {"role": "user", "content": message},
         ]
         response = openai.ChatCompletion.create(
