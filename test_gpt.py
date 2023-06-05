@@ -1,6 +1,6 @@
 import openai
 from config import CODE_MODEL, OPENAI_API_KEY, CODE_MODEL_MAX_TOKENS, DOC_MODEL
-from gpt_utils import truncate_string, get_chat_completion_response
+from gpt_utils import truncate_string, get_chat_completion_response, get_multiple_queries
 
 openai.api_key = OPENAI_API_KEY
 
@@ -56,5 +56,13 @@ content = "You are a helpful bot. You do as instructed"
 # message = f"{introduction}\n\nQuestion:{string}\n\n"
 # content = "You are a helpful bot. You do as said"
 
+# introduction = "You are given a question below which may contain multiple parts. Your task is to form multiple questions using those parts so that each question has a single part."
+# introduction = "You are given a question below which may talk about multiple features. Your task is to form multiple questions, with each question talking about a single feature. Also, the output must be a python list of questions."
+# string = "Using the documentation provided for Agility Finance, prepare a short introduction text covering the following points. About, Minting/Withdraw features, Fees, Expected returns"
+# message = f"{introduction}\n\nQuestion:{string}\n\n"
+# content = "You are a helpful bot. You do as said"
 
-print(get_chat_completion_response(openai, model, content, message))
+print(get_multiple_queries(openai, model))
+
+
+# print(get_chat_completion_response(openai, model, content, message))

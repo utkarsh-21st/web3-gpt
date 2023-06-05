@@ -2,7 +2,11 @@ import os
 import streamlit as st
 from DeFiQA import DeFiQA
 from config import DOC_MODEL, CODE_MODEL, OPENAI_API_KEY
-from gpt_utils import extract_contract_names_as_list, get_chat_completion_response
+from gpt_utils import (
+    extract_contract_names_as_list,
+    get_chat_completion_response,
+    get_multiple_queries,
+)
 import shutil
 import openai
 
@@ -47,7 +51,7 @@ with st.form("url_form"):
                 st.session_state["qa"] = DeFiQA(
                     doc_url, contract_url
                 )  # clear_cache=True
-                if doc_url and contract_url:
+                if doc_url:
                     st.write("Docs:", st.session_state["qa"].doc_url)
                     st.session_state["begin_query"] = 1
         except Exception:
@@ -106,21 +110,29 @@ if st.session_state["begin_query_doc"] == 1:
     st.write("Question: ", query)
     answer_placeholder = st.empty()
     spinner = st.spinner("Fetching the answer...")
+    answer_doc = ""
     with spinner:
-        answer_doc = ""
-        answer_chunk_doc = st.session_state["qa"].ask_doc(query, DOC_MODEL, stream=True)
-        for chunk in answer_chunk_doc:
-            print("chunk", chunk)
-            if chunk["choices"][0]["delta"].get("content"):
-                answer_doc += chunk["choices"][0]["delta"]["content"]
-                answer_placeholder.write(answer_doc)
+        queries = get_multiple_queries(query, openai, DOC_MODEL)
+        # TODO:
+        for query_split in queries:
+            print(query_split)
+        for query_split in queries:
+            answer_chunk_doc = st.session_state["qa"].ask_doc(
+                query_split, DOC_MODEL, stream=True
+            )
+            for chunk in answer_chunk_doc:
+                if chunk["choices"][0]["delta"].get("content"):
+                    answer_doc += chunk["choices"][0]["delta"]["content"]
+                    answer_placeholder.write(answer_doc)
+            answer_doc += "\n\n\n"
 
         contract_names = extract_contract_names_as_list(answer_doc, openai, DOC_MODEL)
-    print("contract_names, query", contract_names, query)
-    if len(contract_names):
-        st.button(
-            "more...",
-            on_click=get_answer_contracts,
-            args=(contract_names, query, answer_doc, answer_placeholder),
-        )
+    if st.session_state["qa"].contracts_path:
+        print("contract_names, query", contract_names, query)
+        if len(contract_names):
+            st.button(
+                "more...",
+                on_click=get_answer_contracts,
+                args=(contract_names, query, answer_doc, answer_placeholder),
+            )
     st.session_state["begin_query_doc"] = 0

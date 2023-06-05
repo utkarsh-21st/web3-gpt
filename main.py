@@ -1,6 +1,6 @@
 from DeFiQA import DeFiQA
 from config import DOC_MODEL, CODE_MODEL, URLS, OPENAI_API_KEY
-from gpt_utils import extract_contract_names_as_list
+from gpt_utils import extract_contract_names_as_list, get_multiple_queries
 import openai
 from pathlib import Path
 import argparse
@@ -63,11 +63,21 @@ def main():
     # qa = DeFiQA(*URLS[2], args.clear_cache, args.clear_contracts_cache)
     while True:
         query = input("Question:")
-        # query = "Provide a list of all contracts along with a brief description"
-        answer_doc = qa.ask_doc(query, DOC_MODEL)
+        try:
+            queries = get_multiple_queries(query, openai, DOC_MODEL)
+        except Exception as e:
+            print(">> Couldn't get multiple queries", e)
+            queries = [query]
+
+        [print("Question:", query) for query in queries]
+
+        # queries = ["Provide a list of all contracts along ith a brief description"]
+        answer_doc = ""
+        for query in queries:
+            answer_doc += qa.ask_doc(query, DOC_MODEL) + "\n\n"
         print("Answer from docs:", answer_doc, end="\n")
-        # contract_names = extract_contract_names_as_list(answer_doc, openai, DOC_MODEL)
-        # print("contract_names", contract_names)
+        contract_names = extract_contract_names_as_list(answer_doc, openai, DOC_MODEL)
+        print("contract_names", contract_names)
         # load_more = True if input("Load more...(y/n)").lower() == "y" else False
         # if load_more:
         #     answer_contract = qa.ask_contract(
