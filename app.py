@@ -107,16 +107,15 @@ if st.session_state["begin_query"] == 1:
 if st.session_state["begin_query_doc"] == 1:
     contract_names = []
     answer_doc = ""
-    st.write("Question: ", query)
+    # st.write("Question: ", query)
     answer_placeholder = st.empty()
     spinner = st.spinner("Fetching the answer...")
     answer_doc = ""
     with spinner:
         queries = get_multiple_queries(query, openai, DOC_MODEL)
-        # TODO:
         for query_split in queries:
-            print(query_split)
-        for query_split in queries:
+            answer_doc += "***Question***: " + query_split + "  \n" + "***Answer***: "
+            answer_placeholder.write(answer_doc)
             answer_chunk_doc = st.session_state["qa"].ask_doc(
                 query_split, DOC_MODEL, stream=True
             )
@@ -124,10 +123,11 @@ if st.session_state["begin_query_doc"] == 1:
                 if chunk["choices"][0]["delta"].get("content"):
                     answer_doc += chunk["choices"][0]["delta"]["content"]
                     answer_placeholder.write(answer_doc)
-            answer_doc += "\n\n\n"
+            answer_doc += "\n"*30
+            answer_placeholder.write(answer_doc)
 
-        contract_names = extract_contract_names_as_list(answer_doc, openai, DOC_MODEL)
     if st.session_state["qa"].contracts_path:
+        contract_names = extract_contract_names_as_list(answer_doc, openai, DOC_MODEL)
         print("contract_names, query", contract_names, query)
         if len(contract_names):
             st.button(

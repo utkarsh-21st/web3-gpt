@@ -39,7 +39,7 @@ openai.api_key = OPENAI_API_KEY
 class DeFiQA:
     def __init__(
         self,
-        doc_url=None,
+        doc_url,
         conracts_dir_url=None,
         clear_cache=False,
         clear_contracts_cache=False,
