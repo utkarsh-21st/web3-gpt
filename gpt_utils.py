@@ -94,7 +94,7 @@ def get_contracts(contract_names, contracts_path):
     contract_names = list(map(lambda s: s.lower(), contract_names))
     contracts = []
     for path in contracts_path.rglob("*"):
-        if path.stem.lower() in contract_names:
+        if path.is_file() and path.stem.lower() in contract_names:
             with open(path, "r") as file:
                 contracts.append(file.read())
     # TODO:
@@ -120,15 +120,21 @@ def get_multiple_queries(query, openai, model):
         query4 = "{Show all contract addresses}"
         answer4 = "['Show all contract addresses']"
         message4 = f"{introduction}\n\nQuestion:{query4}\n\n"
-        query5 = "{What are the risks involved}"
-        answer5 = "['What are the risks involved']"
+        query5 = "{explain options and its corresponding contract in brief}"
+        answer5 = "['Explain options in brief', 'Explain the corresponding contract for options in brief']"
         message5 = f"{introduction}\n\nQuestion:{query5}\n\n"
         query6 = "{Provide a brief description of all the contracts along with their addresses}"
         answer6 = "['Provide a brief description of all the contracts', 'Provide the addresses of all the contracts']"
         message6 = f"{introduction}\n\nQuestion:{query6}\n\n"
         query7 = "{What are positions in Lyra and how to open and close them? Explain in detail. Also compare them with the industry standard}"
-        answer7 = "['What are positions in Lyra? Explain in detail. Also compare them with the industry standard.', 'How to open and close positions in Lyra? Explain in detail. Also compare them with the industry standard.']"
+        answer7 = "['What are positions in Lyra? Explain in detail. Also compare them with the industry standard.', 'How to open positions in Lyra? Explain in detail. Also compare them with the industry standard.', 'How to close positions in Lyra? Explain in detail. Also compare them with the industry standard.']"
         message7 = f"{introduction}\n\nQuestion:{query7}\n\n"
+        # query8 = "{}"
+        # answer8 = "[]"
+        # message8 = f"{introduction}\n\nQuestion:{query8}\n\n"
+        query8 = "{explain withdraw/mint/deposit in the context of this protocol}"
+        answer8 = "['explain withdraw in the context of this protocol', 'explain mint in the context of this protocol', 'explain deposit in the context of this protocol']"
+        message8 = f"{introduction}\n\nQuestion:{query8}\n\n"
         # query5 = "{Show all vaults which have a deposit fee}"
         # answer5 = "['What are the risks involved']"
         # message5 = f"{introduction}\n\nQuestion:{query5}\n\n"
@@ -160,6 +166,8 @@ def get_multiple_queries(query, openai, model):
             {"role": "assistant", "content": answer6},
             {"role": "user", "content": message7},
             {"role": "assistant", "content": answer7},
+            # {"role": "user", "content": message8},
+            # {"role": "assistant", "content": answer8},
             {"role": "user", "content": message},
         ]
         response = openai.ChatCompletion.create(

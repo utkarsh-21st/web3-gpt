@@ -13,9 +13,11 @@ import openai
 openai.api_key = OPENAI_API_KEY
 
 if st.session_state.get("begin_query") is None:
-    st.session_state["begin_query"] = 0
+    st.session_state["begin_query"] = False
 if st.session_state.get("begin_query_doc") is None:
-    st.session_state["begin_query_doc"] = 0
+    st.session_state["begin_query_doc"] = False
+if st.session_state.get("answer_more") is None:
+    st.session_state["answer_more"] = False
 
 st.title("Q-A Bot")
 
@@ -53,7 +55,7 @@ with st.form("url_form"):
                 )  # clear_cache=True
                 if doc_url:
                     st.write("Docs:", st.session_state["qa"].doc_url)
-                    st.session_state["begin_query"] = 1
+                    st.session_state["begin_query"] = True
         except Exception:
             st.write("Bad URL!")
             st.write(Exception)
@@ -64,16 +66,16 @@ if submitted:
     )
 
 
-def get_answer_contracts(contract_names, query, answer_doc, answer_placeholder):
+def get_answer_contracts(contract_names, query, answer_placeholder):
     with st.spinner("Fetching the answer"):
-        answer_contract = answer_doc + "\n" * 2
+        answer = st.session_state["answer"] + "\n" * 2
         messages = st.session_state["qa"].get_messages_contract(contract_names, query)
         for i, message in enumerate(messages):
             # TODO:
             print("i", i)
             print("add", f"{i+1}. {contract_names[i]}:\n")
-            answer_contract += f"{i+1}. {contract_names[i]}:\n"
-            answer_placeholder.write(answer_contract)
+            answer += f"{i+1}. {contract_names[i]}:\n"
+            answer_placeholder.write(answer)
             for split_message in message:
                 answer_chunk_contract = get_chat_completion_response(
                     openai,
@@ -84,47 +86,40 @@ def get_answer_contracts(contract_names, query, answer_doc, answer_placeholder):
                 )
                 for chunk in answer_chunk_contract:
                     if chunk["choices"][0]["delta"].get("content"):
-                        answer_contract += chunk["choices"][0]["delta"]["content"]
-                        answer_placeholder.write(answer_contract)
-                answer_contract += "\n"
-                answer_placeholder.write(answer_contract)
-                print("answer_contract 1 slash", answer_contract)
-            answer_contract += "\n\n"
-            print("answer_contract 2 slash", answer_contract)
-            answer_placeholder.write(answer_contract)
+                        answer += chunk["choices"][0]["delta"]["content"]
+                        answer_placeholder.write(answer)
+                answer += "\n"
+                answer_placeholder.write(answer)
+                print("answer 1 slash", answer)
+            answer += "\n\n"
+            print("answer 2 slash", answer)
+            answer_placeholder.write(answer)
+    st.session_state["answer_more"] = True
+    st.session_state["answer"] = answer
 
 
-if st.session_state["begin_query"] == 1:
-    with st.form("query_form"):
-        query = st.text_input(
-            "Ask", key="question_doc", placeholder="What are positions in Lyra and how to open and close them? Explain in detail."
-        )
-        submitted = st.form_submit_button("Submit")
-        if submitted:
-            st.session_state["begin_query_doc"] = 1
-
-
-if st.session_state["begin_query_doc"] == 1:
-    contract_names = []
-    answer_doc = ""
-    # st.write("Question: ", query)
+def get_answer_docs(query):
     answer_placeholder = st.empty()
     spinner = st.spinner("Fetching the answer...")
     answer_doc = ""
-    with spinner:
-        queries = get_multiple_queries(query, openai, DOC_MODEL)
-        for query_split in queries:
-            answer_doc += "***Question***: " + query_split + "  \n" + "***Answer***: "
-            answer_placeholder.write(answer_doc)
-            answer_chunk_doc = st.session_state["qa"].ask_doc(
-                query_split, DOC_MODEL, stream=True
-            )
-            for chunk in answer_chunk_doc:
-                if chunk["choices"][0]["delta"].get("content"):
-                    answer_doc += chunk["choices"][0]["delta"]["content"]
-                    answer_placeholder.write(answer_doc)
-            answer_doc += "\n"*30
-            answer_placeholder.write(answer_doc)
+    if query:
+        with spinner:
+            queries = get_multiple_queries(query, openai, DOC_MODEL)
+            for query_split in queries:
+                answer_doc += (
+                    "***Question***: " + query_split + "  \n" + "***Answer***: "
+                )
+                answer_placeholder.write(answer_doc)
+                answer_chunk_doc = st.session_state["qa"].ask_doc(
+                    query_split, DOC_MODEL, stream=True
+                )
+                for chunk in answer_chunk_doc:
+                    if chunk["choices"][0]["delta"].get("content"):
+                        answer_doc += chunk["choices"][0]["delta"]["content"]
+                        answer_placeholder.write(answer_doc)
+                answer_doc += "\n" * 30
+                answer_placeholder.write(answer_doc)
+    st.session_state["answer"] = answer_doc
 
     if st.session_state["qa"].contracts_path:
         contract_names = extract_contract_names_as_list(answer_doc, openai, DOC_MODEL)
@@ -133,6 +128,25 @@ if st.session_state["begin_query_doc"] == 1:
             st.button(
                 "more...",
                 on_click=get_answer_contracts,
-                args=(contract_names, query, answer_doc, answer_placeholder),
+                args=(contract_names, query, answer_placeholder),
             )
-    st.session_state["begin_query_doc"] = 0
+
+
+if st.session_state["begin_query"] == True:
+    with st.form("query_form"):
+        query = st.text_input(
+            "Ask",
+            key="question_doc",
+            placeholder="What are positions in Lyra and how to open and close them? Explain in detail.",
+        )
+        submitted = st.form_submit_button("Submit")
+        if submitted:
+            st.session_state["begin_query_doc"] = True
+            st.session_state["answer_more"] = False
+
+if st.session_state["begin_query_doc"]:
+    if not st.session_state["answer_more"]:
+        get_answer_docs(query)
+    else:
+        answer_placeholder = st.empty()
+        answer_placeholder.write(st.session_state["answer"])

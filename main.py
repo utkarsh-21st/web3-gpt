@@ -1,5 +1,5 @@
 from DeFiQA import DeFiQA
-from config import DOC_MODEL, CODE_MODEL, URLS, OPENAI_API_KEY
+from config import DOC_MODEL, URLS, OPENAI_API_KEY
 from gpt_utils import extract_contract_names_as_list, get_multiple_queries
 import openai
 from pathlib import Path
@@ -8,9 +8,9 @@ import argparse
 openai.api_key = OPENAI_API_KEY
 
 """
-TODO: Format final output like frontend
+TODO: improve QA parsong accuracy
 
-TODO: Fix spinner when more is clicked
+TODO: improve contract names extraction
 
 TODO: make the final combined output consise
 
