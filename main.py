@@ -1,5 +1,5 @@
 from DeFiQA import DeFiQA
-from config import DOC_MODEL, URLS, OPENAI_API_KEY
+from config import MODEL, URLS, OPENAI_API_KEY
 from gpt_utils import extract_contract_names_as_list, get_multiple_queries
 import openai
 from pathlib import Path
@@ -8,34 +8,23 @@ import argparse
 openai.api_key = OPENAI_API_KEY
 
 """
-TODO: improve QA parsong accuracy
+TODO: alternatives to truncate?
 
-TODO: improve contract names extraction
-
-TODO: make the final combined output consise
-
-TODO: clean scrapped text? remove '/$', for example
-
-TODO: when to truncate; remove addresses before truncate?
-
-TODO: make doc url and contract url independent
+TODO: keep multiple, overlapping sub-text instead of discarding the truncated part?
 
 TODO: exception handling
 
-TODO: combine top ranked texts from both doc and contracts for querying?
+TODO: improve contract names extraction
 
-TODO: keep multiple, overlapping sub-text instead of discarding the truncated part
+TODO: improve QA parsing accuracy
 
-TODO: In case of contracts, use as much code as possible, possibly using multiple queries covering all relevant codes (see n_messages)
+TODO: concatenate each q with {the protocol name}?
 
 TODO: format contract(.sol) after downloading
 
 TODO: context is system vs message
 
-TODO: lacking context in contracts Q/A?
-
 TODO: tune num token for output?
-
 """
 
 
@@ -59,37 +48,37 @@ def main():
     parse_args()
     doc_url = input("Enter a gitbook URL: ")
     contract_url = input("Enter an URL of a github contracts directory: ")
-    # qa = DeFiQA(doc_url, contract_url, clear_cache=args.clear_cache)
-    qa = DeFiQA(*URLS[0], args.clear_cache, args.clear_contracts_cache)
+    # qa = DeFiQA(*URLS[0], args.clear_cache, args.clear_contracts_cache)
+    qa = DeFiQA(
+        URLS[0][0],
+        clear_cache=args.clear_cache,
+        clear_contracts_cache=args.clear_contracts_cache,
+    )
     while True:
         query = input("Question:")
-        queries = get_multiple_queries(query, openai, DOC_MODEL)
+        queries = get_multiple_queries(query, openai, MODEL)
 
         [print("Question:", query) for query in queries]
 
         # queries = ["Provide a list of all contracts along ith a brief description"]
         answer_doc = ""
         for query_split in queries:
-            answer_doc += qa.ask_doc(query_split, DOC_MODEL) + "\n\n"
+            answer_doc += qa.ask_doc(query_split, MODEL) + "\n\n"
         print("Answer from docs:", answer_doc, end="\n")
-        contract_names = extract_contract_names_as_list(answer_doc, openai, DOC_MODEL)
-        print("contract_names", contract_names)
-        load_more = True if input("Load more...(y/n)").lower() == "y" else False
         answer = answer_doc
-        if load_more:
-            answer_contract = qa.ask_contract(contract_names, query, print_message=True)
-            print("Answer from code:", answer_contract, end="\n")
-            answer += "\n" * 2 + answer_contract
+        if qa.contracts_path:
+            contract_names = extract_contract_names_as_list(answer_doc, openai, MODEL)
+            print("contract_names", contract_names)
+            load_more = True if input("Load more...(y/n)").lower() == "y" else False
+            if load_more:
+                answer_contract = qa.ask_contract(
+                    contract_names, query, print_message=True
+                )
+                print("Answer from code:", answer_contract, end="\n")
+                answer += "\n" * 2 + answer_contract
         print("Answer:", answer)
         # break
 
 
 if __name__ == "__main__":
     main()
-
-
-"""
-- ask docs
-- prepare a list of contracts using the answer from docs and the original question
-- ask the question from contracts on each contract from the list
-"""

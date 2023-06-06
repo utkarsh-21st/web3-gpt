@@ -8,8 +8,7 @@ from config import (
     HEADERS,
     BLACKLIST,
     MAX_TOKENS_PER_EMBEDDING,
-    DOC_MODEL,
-    CODE_MODEL,
+    MODEL,
     BATCH_SIZE,
     EMBEDDING_MODEL,
     OPENAI_API_KEY,
@@ -18,7 +17,9 @@ from config import (
     TOP_N,
     URLS,
     GITHUB_PA_TOKEN,
-    CODE_MODEL_MAX_TOKENS,
+    MODEL_MAX_TOKENS,
+    EMBEDDINGS_DOC_DIR,
+    EMBEDDINGS_DOC_PLUS_CONTRACTS_DIR,
 )
 from gpt_utils import (
     num_tokens,
@@ -52,33 +53,37 @@ class DeFiQA:
         self.urls_response = {}
         self.texts = []
         self.text_headings = []
-        self.embeddings_doc = []
-        self.embeddings_path_doc = None
-        self.embeddings_df_doc = pd.DataFrame()
+        self.embeddings = []
+        self.embeddings_df_path = None
+        self.embeddings_df = pd.DataFrame()
 
         self.repo_name = None
         self.contracts_name = None
         self.contracts_path = None
         self.contract_names = []
 
-        if self.doc_url:
-            try:
-                match = re.search("(https?://[^/]+)/?", self.doc_url)
-                self.doc_url = match.group(1)
-            except Exception as e:
-                print(e)
-                print("Can't parse the given URL: ", self.doc_url)
-                print("Example URL: ", URLS[0])
-                print("Exiting...")
-                sys.exit()
+        try:
+            match = re.search("(https?://[^/]+)/?", self.doc_url)
+            self.doc_url = match.group(1)
+        except Exception as e:
+            print(e)
+            print("Can't parse the given URL: ", self.doc_url)
+            print("Example URL: ", URLS[0])
+            print("Exiting...")
+            sys.exit()
 
-            self.doc_name = self.doc_url.split("//")[1] if self.doc_url else None
-            self.embeddings_path_doc = SAVE_PATH / (self.doc_name + ".csv")
+        self.doc_name = self.doc_url.split("//")[1] if self.doc_url else None
+        if conracts_dir_url:
+            self.embeddings_df_path = EMBEDDINGS_DOC_PLUS_CONTRACTS_DIR / (
+                self.doc_name + ".csv"
+            )
+        else:
+            self.embeddings_df_path = EMBEDDINGS_DOC_DIR / (self.doc_name + ".csv")
 
-            if clear_cache:
-                print(f"Clearing cache for {self.doc_url}")
-                if self.embeddings_path_doc.exists():
-                    os.remove(self.embeddings_path_doc)
+        if clear_cache:
+            print(f"Clearing cache for {self.doc_url}")
+            if self.embeddings_df_path.exists():
+                os.remove(self.embeddings_df_path)
 
         if self.conracts_dir_url:
             try:
@@ -104,7 +109,7 @@ class DeFiQA:
                 self.download_contracts()
 
         # pre-compute embeddings from contracts
-        if not self.embeddings_path_doc.exists():
+        if not self.embeddings_df_path.exists():
             self.scrape_urls_recursively()
             self.read_text_from_url()
 
@@ -124,14 +129,14 @@ class DeFiQA:
                             else ""
                         )
                         with open(path, "r") as file:
-                            print("going through", path)
+                            print("learning", path)
                             contract = file.read()
                             introduction = "Below is the code of a Smart Contract. Give a detailed explaination of it."
                             question = ""
                             split_messages = []
 
                             split_contracts = self.split_contract(
-                                introduction, contract, question, CODE_MODEL
+                                introduction, contract, question, MODEL
                             )
                             for split_contract in split_contracts:
                                 split_message = introduction + split_contract + question
@@ -140,7 +145,7 @@ class DeFiQA:
                                 chat_responses = []
                                 chat_response = get_chat_completion_response(
                                     openai,
-                                    CODE_MODEL,
+                                    MODEL,
                                     "You answer questions about provided Smart Contracts belonging to a DeFi protocol.",
                                     split_message,
                                 )
@@ -154,9 +159,7 @@ class DeFiQA:
                             )
                         self.contract_names.append(path.stem)
 
-                contract_names_description = (
-                    f"The {self.repo_name} consists of the following contracts:\n"
-                )
+                contract_names_description = f"The {self.repo_name} consists of the following contracts. These are all the contracts:\n"
                 for i, contract_name in enumerate(self.contract_names):
                     contract_names_description += f"{i+1}. {contract_name}\n"
 
@@ -167,8 +170,8 @@ class DeFiQA:
         else:
             print("Using saved embeddings")
 
-        self.embeddings_df_doc = pd.read_csv(
-            str(self.embeddings_path_doc),
+        self.embeddings_df = pd.read_csv(
+            str(self.embeddings_df_path),
             converters={"embedding": ast.literal_eval},
         )
 
@@ -186,7 +189,7 @@ class DeFiQA:
                     url_ = "#".join(split_hash[:-1])
                 if url_ not in self.urls:
                     self.urls.append(url_)
-                    print(url_)
+                    print("Found:", url_)
                     self.scrape_urls_recursively(url_)
 
     def download_contracts(self):
@@ -227,6 +230,25 @@ class DeFiQA:
             else requests.get(url, headers=HEADERS)
         )
 
+    def calculate_and_save_doc_embeddings(self):
+        texts = self.perform_string_splitting(self.texts, self.text_headings, MODEL)
+
+        print("Create embeddings in batches")
+        for batch_start in range(0, len(texts), BATCH_SIZE):
+            batch_end = batch_start + BATCH_SIZE
+            batch = texts[batch_start:batch_end]
+            print(f"Batch {batch_start} to {batch_end-1}")
+            response = openai.Embedding.create(model=EMBEDDING_MODEL, input=batch)
+            for i, be in enumerate(response["data"]):
+                assert (
+                    i == be["index"]
+                )  # double check embeddings are in same order as input
+            batch_embeddings = [e["embedding"] for e in response["data"]]
+            self.embeddings.extend(batch_embeddings)
+
+        self.embeddings_df = pd.DataFrame({"text": texts, "embedding": self.embeddings})
+        self.embeddings_df.to_csv(self.embeddings_df_path, index=False)
+
     def perform_string_splitting(self, strings, prefixes, model):
         result = []
         for string, prefix in zip(strings, prefixes):
@@ -237,13 +259,12 @@ class DeFiQA:
             result.extend(split_strings)
         return result
 
-    def split_string(self, string, model, max_recursion=5):
+    def split_string(self, string, model, max_recursion=10):
         texts = []
         if num_tokens(string, model) < MAX_TOKENS_PER_EMBEDDING:
             return [string]
         elif max_recursion == 0:
             print("Max recursions reached")
-            print("Truncate")
             return [
                 truncate_string(
                     string, model=model, max_tokens=MAX_TOKENS_PER_EMBEDDING
@@ -262,29 +283,23 @@ class DeFiQA:
                     texts.extend(texts2)
                     return texts
             # print("string:", string)
+
+            # The string perhaps include addresses. We need them all
             print("num_tokens:", num_tokens(string, model))
             print("Max:", MAX_TOKENS_PER_EMBEDDING)
-            # print("left:", left)
-            # print("right:", right)
-            # string = re.sub(r"0x[a-fA-F0-9]{40}", "contract address", string)
-            # print("string:", string)
-            # print("num_tokens after deleting addresses:", num_tokens(string))
-            # if num_tokens(string) >= MAX_TOKENS_PER_EMBEDDING:
-            print("Truncate")
+            if num_tokens(string, model) < MAX_TOKENS_PER_QUERY - 500: # reserve 500 for introduction and question
+                print("increasing MAX_TOKENS_PER_EMBEDDING to", MAX_TOKENS_PER_QUERY - 500)
+                return [string]
+
             return [
                 truncate_string(
-                    string, model=DOC_MODEL, max_tokens=MAX_TOKENS_PER_EMBEDDING
+                    string, model=MODEL, max_tokens=MAX_TOKENS_PER_EMBEDDING
                 )
             ]
-            # else:
-            #     return string
 
     def split_contract(self, introduction, contract, question, model, max_recursion=50):
         contracts = []
-        if (
-            num_tokens(introduction + contract + question, model)
-            < CODE_MODEL_MAX_TOKENS
-        ):
+        if num_tokens(introduction + contract + question, model) < MODEL_MAX_TOKENS:
             return [contract]
         elif max_recursion == 0:
             print("Max recursions reached")
@@ -293,8 +308,7 @@ class DeFiQA:
                 truncate_string(
                     contract,
                     model=model,
-                    max_tokens=CODE_MODEL_MAX_TOKENS
-                    - num_tokens(introduction + question),
+                    max_tokens=MODEL_MAX_TOKENS - num_tokens(introduction + question),
                 )
             ]
         else:
@@ -315,39 +329,9 @@ class DeFiQA:
                     return contracts
             # print("string:", string)
             print("num_tokens:", num_tokens(introduction + contract + question, model))
-            print("Max:", CODE_MODEL_MAX_TOKENS)
-            # print("left:", left)
-            # print("right:", right)
-            # string = re.sub(r"0x[a-fA-F0-9]{40}", "contract address", string)
-            # print("string:", string)
-            # print("num_tokens after deleting addresses:", num_tokens(string))
-            # if num_tokens(string) >= MAX_TOKENS_PER_EMBEDDING:
+            print("Max:", MODEL_MAX_TOKENS)
             print("Truncate")
-            return [
-                truncate_string(
-                    contract, model=CODE_MODEL, max_tokens=CODE_MODEL_MAX_TOKENS
-                )
-            ]
-
-    def calculate_and_save_doc_embeddings(self):
-        texts = self.perform_string_splitting(self.texts, self.text_headings, DOC_MODEL)
-
-        for batch_start in range(0, len(texts), BATCH_SIZE):
-            batch_end = batch_start + BATCH_SIZE
-            batch = texts[batch_start:batch_end]
-            print(f"Batch {batch_start} to {batch_end-1}")
-            response = openai.Embedding.create(model=EMBEDDING_MODEL, input=batch)
-            for i, be in enumerate(response["data"]):
-                assert (
-                    i == be["index"]
-                )  # double check embeddings are in same order as input
-            batch_embeddings = [e["embedding"] for e in response["data"]]
-            self.embeddings_doc.extend(batch_embeddings)
-
-        self.embeddings_df_doc = pd.DataFrame(
-            {"text": texts, "embedding": self.embeddings_doc}
-        )
-        self.embeddings_df_doc.to_csv(self.embeddings_path_doc, index=False)
+            return [truncate_string(contract, model=MODEL, max_tokens=MODEL_MAX_TOKENS)]
 
     def docs_ranked_by_relatedness(
         self,
@@ -363,7 +347,7 @@ class DeFiQA:
         query_embedding = query_embedding_response["data"][0]["embedding"]
         strings_and_relatednesses = [
             (row["text"], relatedness_fn(query_embedding, row["embedding"]))
-            for i, row in self.embeddings_df_doc.iterrows()
+            for i, row in self.embeddings_df.iterrows()
         ]
         strings_and_relatednesses.sort(key=lambda x: x[1], reverse=True)
         strings, relatednesses = zip(*strings_and_relatednesses)
@@ -396,7 +380,7 @@ class DeFiQA:
             introduction = f"Use the below smart contract code for {contract_names[i]} of a DeFi protocol named {self.repo_name} to answer the question.\n\n"
             # introduction = f"Use the below smart contract code for {contract_names[i]} of a DeFi protocol named {self.repo_name} to answer the question. Just answer as much as you can without mentioning any inadequacy in the code provided.\n\n"
             split_contracts = self.split_contract(
-                introduction, contract, question, CODE_MODEL
+                introduction, contract, question, MODEL
             )
             for split_contract in split_contracts:
                 split_message = introduction + split_contract + question
@@ -412,7 +396,7 @@ class DeFiQA:
                 print(message)
             chat_response = get_chat_completion_response(
                 openai,
-                DOC_MODEL,
+                MODEL,
                 "You answer questions about a DeFi protocol",
                 message,
                 stream,
@@ -435,7 +419,7 @@ class DeFiQA:
                 [print(len(split_messages)) for split_messages in messages]
 
             # TODO:
-            print("len messages", len(messages))
+            print("len contract messages", len(messages))
             # print("messages-----", messages)
             chat_responses = []
             for message in messages:
@@ -444,7 +428,7 @@ class DeFiQA:
                     split_responses.append(
                         get_chat_completion_response(
                             openai,
-                            CODE_MODEL,
+                            MODEL,
                             "You answer questions about provided Smart Contracts belonging to a DeFi protocol. You never mention the source of your answer",
                             split_message,
                         )

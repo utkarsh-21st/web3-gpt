@@ -1,7 +1,7 @@
 import os
 import streamlit as st
 from DeFiQA import DeFiQA
-from config import DOC_MODEL, CODE_MODEL, OPENAI_API_KEY
+from config import MODEL, MODEL, OPENAI_API_KEY
 from gpt_utils import (
     extract_contract_names_as_list,
     get_chat_completion_response,
@@ -56,6 +56,7 @@ with st.form("url_form"):
                 if doc_url:
                     st.write("Docs:", st.session_state["qa"].doc_url)
                     st.session_state["begin_query"] = True
+            st.session_state["begin_query_doc"] = False
         except Exception:
             st.write("Bad URL!")
             st.write(Exception)
@@ -79,7 +80,7 @@ def get_answer_contracts(contract_names, query, answer_placeholder):
             for split_message in message:
                 answer_chunk_contract = get_chat_completion_response(
                     openai,
-                    CODE_MODEL,
+                    MODEL,
                     "You answer questions about provided Smart Contracts belonging to a DeFi protocol. You never mention the source of your answer",
                     split_message,
                     stream=True,
@@ -104,14 +105,14 @@ def get_answer_docs(query):
     answer_doc = ""
     if query:
         with spinner:
-            queries = get_multiple_queries(query, openai, DOC_MODEL)
+            queries = get_multiple_queries(query, openai, MODEL)
             for query_split in queries:
                 answer_doc += (
                     "***Question***: " + query_split + "  \n" + "***Answer***: "
                 )
                 answer_placeholder.write(answer_doc)
                 answer_chunk_doc = st.session_state["qa"].ask_doc(
-                    query_split, DOC_MODEL, stream=True
+                    query_split, MODEL, stream=True
                 )
                 for chunk in answer_chunk_doc:
                     if chunk["choices"][0]["delta"].get("content"):
@@ -122,7 +123,7 @@ def get_answer_docs(query):
     st.session_state["answer"] = answer_doc
 
     if st.session_state["qa"].contracts_path:
-        contract_names = extract_contract_names_as_list(answer_doc, openai, DOC_MODEL)
+        contract_names = extract_contract_names_as_list(answer_doc, openai, MODEL)
         print("contract_names, query", contract_names, query)
         if len(contract_names):
             st.button(

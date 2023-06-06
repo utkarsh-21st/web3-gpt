@@ -1,5 +1,5 @@
 import openai
-from config import CODE_MODEL, OPENAI_API_KEY, CODE_MODEL_MAX_TOKENS, DOC_MODEL
+from config import MODEL, OPENAI_API_KEY, MODEL_MAX_TOKENS, MODEL
 from gpt_utils import (
     truncate_string,
     get_chat_completion_response,
@@ -8,8 +8,8 @@ from gpt_utils import (
 
 openai.api_key = OPENAI_API_KEY
 
-model = CODE_MODEL
-max_tokens = CODE_MODEL_MAX_TOKENS
+model = MODEL
+max_tokens = MODEL_MAX_TOKENS
 
 answer_doc = """AGI TimeLock: A contract that locks AGI tokens for a specified period of time.
 - Agility.Treasury.eth: A contract that holds the treasury funds of the Agility protocol.
@@ -42,7 +42,7 @@ answer_doc = """AGI TimeLock: A contract that locks AGI tokens for a specified p
 # message = f"{introduction}\n\nText:{string}\n\n"
 # content = "You are a helpful bot. You do as instructed"
 
-model = DOC_MODEL
+model = MODEL
 introduction = (
     "Refine the below text to make it coherent an consise. Remove any redundancies."
 )
