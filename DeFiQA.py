@@ -114,15 +114,8 @@ class DeFiQA:
             self.read_text_from_url()
 
             if self.conracts_dir_url:
-                # TODO:
-                # i = 0
                 for path in self.contracts_path.rglob("*"):
-                    # TODO:
-                    # if i == 2:
-                    #     break
                     if path.is_file() and path.suffix == ".sol":
-                        # TODO:
-                        # i += 1
                         dir_name = (
                             path.parts[-2]
                             if path.parts[-2].lower() != "contracts"
@@ -420,7 +413,6 @@ class DeFiQA:
 
             # TODO:
             print("len contract messages", len(messages))
-            # print("messages-----", messages)
             chat_responses = []
             for message in messages:
                 split_responses = []

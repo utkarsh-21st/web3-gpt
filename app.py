@@ -1,7 +1,7 @@
 import os
 import streamlit as st
 from DeFiQA import DeFiQA
-from config import MODEL, MODEL, OPENAI_API_KEY
+from config import MODEL, OPENAI_API_KEY
 from gpt_utils import (
     extract_contract_names_as_list,
     get_chat_completion_response,
@@ -72,9 +72,6 @@ def get_answer_contracts(contract_names, query, answer_placeholder):
         answer = st.session_state["answer"] + "\n" * 2
         messages = st.session_state["qa"].get_messages_contract(contract_names, query)
         for i, message in enumerate(messages):
-            # TODO:
-            print("i", i)
-            print("add", f"{i+1}. {contract_names[i]}:\n")
             answer += f"{i+1}. {contract_names[i]}:\n"
             answer_placeholder.write(answer)
             for split_message in message:
@@ -91,9 +88,7 @@ def get_answer_contracts(contract_names, query, answer_placeholder):
                         answer_placeholder.write(answer)
                 answer += "\n"
                 answer_placeholder.write(answer)
-                print("answer 1 slash", answer)
             answer += "\n\n"
-            print("answer 2 slash", answer)
             answer_placeholder.write(answer)
     st.session_state["answer_more"] = True
     st.session_state["answer"] = answer
