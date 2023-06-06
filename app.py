@@ -22,16 +22,31 @@ if st.session_state.get("answer_more") is None:
 st.title("Q-A Bot")
 
 
-def clear_all_cache():
+def remove_paths(paths):
+    for path in paths:
+        os.remove(path) if path.is_file() else shutil.rmtree(path)
+
+
+def clear_embeddings_cache():
     if st.session_state.get("qa"):
-        paths = [
-            st.session_state.get("qa").embeddings_path_doc,
-            st.session_state.get("qa").contracts_path.parent,
-        ]
-        for path in paths:
-            os.remove(path) if path.is_file() else shutil.rmtree(path)
+        remove_paths(
+            [
+                st.session_state.get("qa").embeddings_path,
+            ]
+        )
     else:
-        st.write("Please provide a URL first!")
+        st.write("Please submit a URL first!")
+
+
+def clear_contracts_cache():
+    if st.session_state.get("qa"):
+        remove_paths(
+            [
+                st.session_state.get("qa").contracts_path.parent,
+            ]
+        )
+    else:
+        st.write("Please submit a URL first!")
 
 
 with st.form("url_form"):
@@ -62,9 +77,23 @@ with st.form("url_form"):
             st.write(Exception)
 
 if submitted:
-    st.button(
-        "Clear all cache", on_click=clear_all_cache, help="Not allowed", disabled=True
-    )
+    col1, col2 = st.columns([1, 1])
+    if st.session_state["qa"].doc_url:
+        with col1:
+            st.button(
+                "Reset embeddings",
+                on_click=clear_embeddings_cache,
+                help="Not allowed",
+                disabled=True,
+            )
+    if st.session_state["qa"].contracts_path:
+        with col2:
+            st.button(
+                "Reset contracts",
+                on_click=clear_contracts_cache,
+                help="Not allowed",
+                disabled=True,
+            )
 
 
 def get_answer_contracts(contract_names, query, answer_placeholder):
